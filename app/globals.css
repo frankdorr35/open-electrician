@@ -1,0 +1,34 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+  
+  --color-safety-orange: #f97316;
+  --color-industrial-navy: #0f172a;
+}
+
+@layer base {
+  * {
+    @apply border-slate-200;
+  }
+  body {
+    @apply bg-slate-50 text-slate-900;
+  }
+}
+
+.glass {
+  @apply bg-white/80 backdrop-blur-md border-b border-white/20;
+}
+
+.skill-node {
+  @apply relative p-6 rounded-2xl transition-all duration-300 cursor-pointer border-2;
+}
+
+.skill-node-active {
+  @apply border-safety-orange bg-orange-50 shadow-lg shadow-orange-100;
+}
+
+.skill-node-inactive {
+  @apply border-slate-200 bg-white hover:border-slate-300 hover:shadow-md;
+}
