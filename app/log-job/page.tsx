@@ -5,9 +5,17 @@ import { ArrowLeft, Camera, Mic, Square, Save } from 'lucide-react';
 import Link from 'next/link';
 
 export default function LogJobPage() {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<{
+    equipmentSpotted: string;
+    extractedSpecs: string;
+    professionalSummary: string;
+  } | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -20,6 +28,7 @@ export default function LogJobPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setSelectedFile(file);
       // Clean up previous object URL to avoid memory leaks
       if (imagePreview) URL.revokeObjectURL(imagePreview);
       const url = URL.createObjectURL(file);
@@ -71,11 +80,39 @@ export default function LogJobPage() {
     }
   };
 
-  const handleSave = () => {
-    console.log('Saving Job Record...');
-    console.log('Image Preview URL:', imagePreview);
-    console.log('Audio Blob:', audioBlob);
-    alert('Job logged successfully! (Check console for data)');
+  const handleSaveAndAnalyze = async () => {
+    if (!selectedFile) {
+      alert("Please snap a photo first!");
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setAnalysisResult(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("image", selectedFile);
+      // Placeholder for transcript as specified by user
+      formData.append("transcript", "Voice note captured at job site.");
+
+      const response = await fetch("/api/analyze-job", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to analyze job");
+      }
+
+      const data = await response.json();
+      setAnalysisResult(data);
+      console.log('Analysis result received:', data);
+    } catch (error) {
+      console.error('Error analyzing job:', error);
+      alert('Error analyzing job. Please ensure your GEMINI_API_KEY is correct in .env.local');
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   return (
@@ -101,8 +138,9 @@ export default function LogJobPage() {
             onChange={handleFileChange}
           />
           <button 
+            disabled={isAnalyzing}
             onClick={handleSnapPhoto}
-            className="w-full aspect-square max-w-[200px] bg-orange-500 rounded-[2.5rem] flex flex-col items-center justify-center gap-3 transition-all hover:brightness-110 active:scale-95 shadow-xl shadow-orange-500/20 group"
+            className="w-full aspect-square max-w-[200px] bg-orange-500 rounded-[2.5rem] flex flex-col items-center justify-center gap-3 transition-all hover:brightness-110 active:scale-95 shadow-xl shadow-orange-500/20 group disabled:opacity-50 disabled:grayscale"
           >
             <div className="p-4 bg-black/10 rounded-2xl group-hover:scale-110 transition-transform">
               <Camera size={56} className="text-black" strokeWidth={1.5} />
@@ -127,8 +165,9 @@ export default function LogJobPage() {
         {/* Audio Section */}
         <section className="flex flex-col items-center w-full">
           <button 
+            disabled={isAnalyzing}
             onClick={toggleRecording}
-            className={`w-full py-8 rounded-3xl flex items-center justify-center gap-4 transition-all active:scale-95 border-2 ${
+            className={`w-full py-8 rounded-3xl flex items-center justify-center gap-4 transition-all active:scale-95 border-2 disabled:opacity-50 ${
               isRecording 
                 ? 'bg-red-500 border-red-500 shadow-xl shadow-red-500/40 animate-pulse' 
                 : 'bg-zinc-900 border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700'
@@ -150,16 +189,52 @@ export default function LogJobPage() {
           )}
         </section>
 
+        {/* Results Section */}
+        {analysisResult && (
+          <section className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="p-5 bg-zinc-900/80 rounded-3xl border border-zinc-800 flex flex-col gap-4">
+              <div>
+                <h3 className="text-xs font-black text-orange-500 uppercase tracking-[0.2em] mb-1">Equipment Spotted</h3>
+                <p className="text-lg font-bold text-white leading-tight">{analysisResult.equipmentSpotted}</p>
+              </div>
+              
+              <div className="h-px bg-zinc-800" />
+              
+              <div>
+                <h3 className="text-xs font-black text-orange-500 uppercase tracking-[0.2em] mb-1">Extracted Specs</h3>
+                <p className="text-sm font-medium text-zinc-300 leading-relaxed font-mono">{analysisResult.extractedSpecs}</p>
+              </div>
+
+              <div className="h-px bg-zinc-800" />
+              
+              <div>
+                <h3 className="text-xs font-black text-orange-500 uppercase tracking-[0.2em] mb-1">Field Summary</h3>
+                <p className="text-sm font-medium text-zinc-400 italic leading-relaxed">"{analysisResult.professionalSummary}"</p>
+              </div>
+            </div>
+          </section>
+        )}
+
       </main>
 
       {/* Action Footer */}
       <footer className="p-6 bg-zinc-950/80 backdrop-blur-xl border-t border-zinc-900 sticky bottom-0">
         <button 
-          onClick={handleSave}
-          className="w-full bg-white text-black py-5 rounded-2xl font-black uppercase tracking-tight text-xl hover:bg-zinc-200 transition-all flex items-center justify-center gap-3 active:scale-[0.98] shadow-2xl shadow-white/5"
+          disabled={isAnalyzing || isRecording}
+          onClick={handleSaveAndAnalyze}
+          className="w-full bg-white text-black py-5 rounded-2xl font-black uppercase tracking-tight text-xl hover:bg-zinc-200 transition-all flex items-center justify-center gap-3 active:scale-[0.98] shadow-2xl shadow-white/5 disabled:opacity-50"
         >
-          <Save size={24} />
-          Save & Analyze
+          {isAnalyzing ? (
+            <>
+              <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+              Analyzing...
+            </>
+          ) : (
+            <>
+              <Save size={24} />
+              Save & Analyze
+            </>
+          )}
         </button>
       </footer>
 
