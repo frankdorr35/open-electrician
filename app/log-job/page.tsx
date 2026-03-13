@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Camera, Mic, Square, Save } from 'lucide-react';
 import Link from 'next/link';
 
@@ -8,7 +8,7 @@ export default function LogJobPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [transcript, setTranscript] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<{
     equipmentSpotted: string;
@@ -17,8 +17,41 @@ export default function LogJobPage() {
   } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  const recognitionRef = useRef<any>(null);
+
+  // Initialize Speech Recognition
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onresult = (event: any) => {
+        let finalTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          }
+        }
+        if (finalTranscript) {
+          setTranscript(prev => (prev + ' ' + finalTranscript).trim());
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        setIsRecording(false);
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognitionRef.current = recognition;
+    }
+  }, []);
 
   // Camera Handlers
   const handleSnapPhoto = () => {
@@ -36,47 +69,23 @@ export default function LogJobPage() {
     }
   };
 
-  // Audio Handlers
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      chunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunksRef.current.push(e.data);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        setAudioBlob(blob);
-        console.log('Audio recorded:', blob);
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-    } catch (err) {
-      console.error('Error accessing microphone:', err);
-      alert('Could not access microphone. Please ensure you have given permission.');
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
-      setIsRecording(false);
-    }
-  };
-
+  // Speech Handlers
   const toggleRecording = () => {
+    if (!recognitionRef.current) {
+      alert("Speech recognition is not supported in this browser.");
+      return;
+    }
+
     if (isRecording) {
-      stopRecording();
+      recognitionRef.current.stop();
+      setIsRecording(false);
     } else {
-      startRecording();
+      try {
+        recognitionRef.current.start();
+        setIsRecording(true);
+      } catch (err) {
+        console.error("Failed to start recognition:", err);
+      }
     }
   };
 
@@ -92,8 +101,7 @@ export default function LogJobPage() {
     try {
       const formData = new FormData();
       formData.append("image", selectedFile);
-      // Placeholder for transcript as specified by user
-      formData.append("transcript", "Voice note captured at job site.");
+      formData.append("transcript", transcript);
 
       const response = await fetch("/api/analyze-job", {
         method: "POST",
@@ -125,7 +133,7 @@ export default function LogJobPage() {
         <h1 className="text-xl font-bold tracking-tight">New Job Record</h1>
       </header>
 
-      <main className="flex-1 p-6 flex flex-col gap-10 max-w-md mx-auto w-full pt-10">
+      <main className="flex-1 p-6 flex flex-col gap-8 max-w-md mx-auto w-full pt-10 pb-20">
         
         {/* Camera Section */}
         <section className="flex flex-col items-center">
@@ -140,20 +148,20 @@ export default function LogJobPage() {
           <button 
             disabled={isAnalyzing}
             onClick={handleSnapPhoto}
-            className="w-full aspect-square max-w-[200px] bg-orange-500 rounded-[2.5rem] flex flex-col items-center justify-center gap-3 transition-all hover:brightness-110 active:scale-95 shadow-xl shadow-orange-500/20 group disabled:opacity-50 disabled:grayscale"
+            className="w-full aspect-square max-w-[180px] bg-orange-500 rounded-[2.5rem] flex flex-col items-center justify-center gap-3 transition-all hover:brightness-110 active:scale-95 shadow-xl shadow-orange-500/20 group disabled:opacity-50 disabled:grayscale"
           >
-            <div className="p-4 bg-black/10 rounded-2xl group-hover:scale-110 transition-transform">
-              <Camera size={56} className="text-black" strokeWidth={1.5} />
+            <div className="p-3 bg-black/10 rounded-2xl group-hover:scale-110 transition-transform">
+              <Camera size={48} className="text-black" strokeWidth={1.5} />
             </div>
-            <span className="text-black font-black uppercase text-sm tracking-widest">Snap Photo</span>
+            <span className="text-black font-black uppercase text-xs tracking-widest">Snap Photo</span>
           </button>
           
           {imagePreview && (
             <div className="mt-8 relative group">
-              <div className="w-40 h-40 rounded-3xl overflow-hidden border-2 border-orange-500 shadow-2xl shadow-orange-500/20">
+              <div className="w-32 h-32 rounded-3xl overflow-hidden border-2 border-orange-500 shadow-2xl shadow-orange-500/20">
                 <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
               </div>
-              <div className="absolute -top-2 -right-2 bg-orange-500 text-black text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-tighter">
+              <div className="absolute -top-2 -right-2 bg-orange-500 text-black text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-tighter shadow-lg">
                 Preview
               </div>
             </div>
@@ -162,31 +170,37 @@ export default function LogJobPage() {
 
         <div className="h-px bg-zinc-900 w-full" />
 
-        {/* Audio Section */}
-        <section className="flex flex-col items-center w-full">
+        {/* Voice Section */}
+        <section className="flex flex-col items-center w-full gap-4">
           <button 
             disabled={isAnalyzing}
             onClick={toggleRecording}
-            className={`w-full py-8 rounded-3xl flex items-center justify-center gap-4 transition-all active:scale-95 border-2 disabled:opacity-50 ${
+            className={`w-full py-6 rounded-3xl flex items-center justify-center gap-4 transition-all active:scale-95 border-2 disabled:opacity-50 ${
               isRecording 
                 ? 'bg-red-500 border-red-500 shadow-xl shadow-red-500/40 animate-pulse' 
                 : 'bg-zinc-900 border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700'
             }`}
           >
-            <div className={`p-3 rounded-xl ${isRecording ? 'bg-white/20' : 'bg-orange-500/10'}`}>
-              {isRecording ? <Square size={28} fill="white" className="text-white" /> : <Mic size={28} className="text-orange-500" strokeWidth={1.5} />}
+            <div className={`p-2 rounded-xl ${isRecording ? 'bg-white/20' : 'bg-orange-500/10'}`}>
+              {isRecording ? <Square size={24} fill="white" className="text-white" /> : <Mic size={24} className="text-orange-500" strokeWidth={1.5} />}
             </div>
-            <span className="font-black uppercase tracking-widest text-lg">
+            <span className="font-black uppercase tracking-widest text-base">
               {isRecording ? 'Recording...' : 'Voice Note'}
             </span>
           </button>
-          
-          {audioBlob && !isRecording && (
-            <div className="mt-4 flex items-center gap-2 text-zinc-400 bg-zinc-900/50 px-4 py-2 rounded-full border border-zinc-800">
-              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <p className="text-xs font-bold uppercase tracking-widest">Audio Ready</p>
-            </div>
-          )}
+
+          {/* Transcript Area */}
+          <div className="w-full flex flex-col gap-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500 ml-4">
+              Field Transcripts
+            </label>
+            <textarea
+              value={transcript}
+              onChange={(e) => setTranscript(e.target.value)}
+              placeholder="Start speaking to record notes or type here..."
+              className="w-full h-32 bg-zinc-900/50 border border-zinc-800 rounded-3xl p-5 text-sm text-zinc-300 focus:outline-none focus:border-orange-500 transition-colors resize-none placeholder:text-zinc-700"
+            />
+          </div>
         </section>
 
         {/* Results Section */}

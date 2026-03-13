@@ -28,12 +28,16 @@ export async function POST(req: Request) {
     };
 
     const prompt = `
-      Act as a Master Electrician. Analyze the provided image and the following field voice transcript: "${transcript || 'No transcript provided'}"
+      Act as a Master Electrician. Analyze the provided image of the equipment and the following field notes from the electrician on site:
+      
+      Field Notes: "${transcript || 'No specific notes provided.'}"
+      
+      Combine both the visual cues from the image and the electrician's notes to provide a highly accurate analysis.
       
       Return a structured JSON object with these EXACT keys:
       1. equipmentSpotted: (String) What you see in the photo (e.g., '200A Square D Panel').
       2. extractedSpecs: (String) Any readable text, voltages, or amps.
-      3. professionalSummary: (String) A clean, polished version of the field notes.
+      3. professionalSummary: (String) A clean, polished version of the field notes combined with visual analysis.
       
       Return ONLY valid JSON.
     `;
