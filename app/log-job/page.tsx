@@ -29,15 +29,10 @@ export default function LogJobPage() {
       recognition.lang = 'en-US';
 
       recognition.onresult = (event: any) => {
-        let finalTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          }
-        }
-        if (finalTranscript) {
-          setTranscript(prev => (prev + ' ' + finalTranscript).trim());
-        }
+        const currentTranscript = Array.from(event.results)
+          .map((result: any) => result[0].transcript)
+          .join('');
+        setTranscript(currentTranscript);
       };
 
       recognition.onerror = (event: any) => {
