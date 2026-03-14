@@ -38,6 +38,7 @@ export async function POST(req: Request) {
       1. equipmentSpotted: (String) What you see in the photo (e.g., '200A Square D Panel').
       2. extractedSpecs: (String) Any readable text, voltages, or amps.
       3. professionalSummary: (String) A clean, polished version of the field notes combined with visual analysis.
+      4. smartTags: (Array of Strings) 3 to 5 highly relevant, short tags (e.g., 'Pump Repair', 'Siemens', 'Troubleshooting').
       
       Return ONLY valid JSON.
     `;

@@ -14,6 +14,7 @@ export default function LogJobPage() {
     equipmentSpotted: string;
     extractedSpecs: string;
     professionalSummary: string;
+    smartTags: string[];
   } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -220,6 +221,22 @@ export default function LogJobPage() {
                 <h3 className="text-xs font-black text-orange-500 uppercase tracking-[0.2em] mb-1">Field Summary</h3>
                 <p className="text-sm font-medium text-zinc-400 italic leading-relaxed">"{analysisResult.professionalSummary}"</p>
               </div>
+
+              {analysisResult.smartTags && analysisResult.smartTags.length > 0 && (
+                <>
+                  <div className="h-px bg-zinc-800" />
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {analysisResult.smartTags.map((tag, index) => (
+                      <span 
+                        key={index} 
+                        className="px-3 py-1 bg-orange-500/10 border border-orange-500/30 text-orange-500 text-[10px] font-black uppercase tracking-wider rounded-full"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </section>
         )}
